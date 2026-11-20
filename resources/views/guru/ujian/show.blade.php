@@ -37,7 +37,13 @@
     </div>
 </div>
 
-{{-- Pesan error validasi --}}
+{{-- Pesan sukses & error validasi --}}
+@if (session('success'))
+    <div class="mb-6 rounded-lg border border-green-200 bg-green-50 p-3 text-sm text-green-700">
+        {{ session('success') }}
+    </div>
+@endif
+
 @if ($errors->any())
     <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
         <ul class="list-inside list-disc">
@@ -112,17 +118,24 @@
     <div class="border-b border-slate-100 p-4 font-semibold text-slate-900">Daftar Soal ({{ $ujian->soals->count() }})</div>
     <table class="w-full text-sm">
         <thead class="bg-slate-50 text-left text-slate-600">
-            <tr><th class="w-12 p-3">No</th><th class="p-3">Pertanyaan</th><th class="w-20 p-3">Kunci</th><th class="w-32 p-3"></th></tr>
+            <tr><th class="w-12 p-3">No</th><th class="p-3">Pertanyaan &amp; Opsi</th><th class="w-20 p-3">Kunci</th><th class="w-32 p-3"></th></tr>
         </thead>
         <tbody>
         @forelse ($ujian->soals as $i => $s)
             <tr class="border-t border-slate-100 align-top">
                 <td class="p-3">{{ $i + 1 }}</td>
                 <td class="p-3">
-                    <div class="whitespace-pre-line">{{ $s->pertanyaan }}</div>
+                    <div class="whitespace-pre-line text-slate-900">{{ $s->pertanyaan }}</div>
                     @if ($s->gambar_exists)
                         <img src="{{ route('soal.gambar', $s) }}?v={{ $s->updated_at->timestamp }}" class="mt-2 max-h-24 rounded border" alt="Gambar soal">
                     @endif
+                    <ol class="mt-2 space-y-0.5 text-slate-600">
+                        @foreach ($s->opsi as $huruf => $teks)
+                            <li class="{{ $huruf === $s->kunci ? 'font-semibold text-green-700' : '' }}">
+                                {{ $huruf }}. {{ $teks }}@if ($huruf === $s->kunci) ✓@endif
+                            </li>
+                        @endforeach
+                    </ol>
                 </td>
                 <td class="p-3 font-bold">{{ $s->kunci }}</td>
                 <td class="space-x-3 whitespace-nowrap p-3 text-right">
