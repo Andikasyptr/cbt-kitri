@@ -32,6 +32,7 @@
             .btn-ghost   { @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus:ring-slate-300/40; }
         }
     </style>
+    @include('partials.katex')
 </head>
 <body class="font-sans antialiased bg-slate-100 text-slate-800">
 @php

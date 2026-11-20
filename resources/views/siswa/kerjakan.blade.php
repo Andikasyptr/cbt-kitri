@@ -7,6 +7,7 @@
     <title>{{ $ujian->judul }} - CBT</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>body { user-select: none; -webkit-user-select: none; }</style>
+    @include('partials.katex')
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
@@ -123,6 +124,11 @@ function render() {
 
     $('btn-prev').disabled = idx === 0;
     $('btn-next').disabled = idx === SOAL.length - 1;
+
+    // Ubah $...$ menjadi rumus matematika
+    window.renderMath($('q-text'));
+    window.renderMath($('opsi'));
+
     renderGrid();
 }
 
