@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Soal extends Model
 {
@@ -13,6 +14,11 @@ class Soal extends Model
     public function ujian(): BelongsTo
     {
         return $this->belongsTo(Ujian::class);
+    }
+
+    public function gambar(): HasOne
+    {
+        return $this->hasOne(SoalGambar::class);
     }
 
     // Daftar opsi sebagai array: ['A' => '...', 'B' => '...', ...]
@@ -26,9 +32,4 @@ class Soal extends Model
             'E' => $this->opsi_e,
         ];
     }
-
-    public function gambar(): HasOne
-{
-    return $this->hasOne(SoalGambar::class);
-}
 }
