@@ -2,6 +2,10 @@
 @section('title', $ujian->judul)
 @section('content')
 
+@php
+    $field = 'w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500';
+@endphp
+
 {{-- Ringkasan + token --}}
 <div class="mb-6 grid gap-6 lg:grid-cols-3">
     <div class="card space-y-1 p-5 text-sm lg:col-span-2">
@@ -33,6 +37,17 @@
     </div>
 </div>
 
+{{-- Pesan error validasi --}}
+@if ($errors->any())
+    <div class="mb-6 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+        <ul class="list-inside list-disc">
+            @foreach ($errors->all() as $err)
+                <li>{{ $err }}</li>
+            @endforeach
+        </ul>
+    </div>
+@endif
+
 <div class="mb-6 grid gap-6 lg:grid-cols-2">
     {{-- Import Excel --}}
     <div class="card h-fit space-y-3 p-5">
@@ -41,8 +56,9 @@
         <a href="{{ route('guru.soal.template', $ujian) }}" class="inline-block text-sm text-blue-600 hover:underline">⬇ Download template Excel</a>
         <form action="{{ route('guru.soal.import', $ujian) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
             @csrf
-            <input type="file" name="file" accept=".xlsx,.xls" required class="block w-full rounded-lg border p-2 text-sm">
-            <label class="flex items-center gap-2 text-sm">
+            <input type="file" name="file" accept=".xlsx,.xls" required
+                   class="block w-full rounded-lg border border-slate-300 bg-white p-2 text-sm text-slate-900">
+            <label class="flex items-center gap-2 text-sm text-slate-700">
                 <input type="checkbox" name="hapus_lama" value="1"> Hapus semua soal lama sebelum import
             </label>
             <button class="btn-primary">Import</button>
@@ -55,7 +71,7 @@
         <h2 class="font-semibold text-slate-900">Tambah Soal Manual</h2>
 
         <textarea id="in-tanya" name="pertanyaan" rows="3" placeholder="Pertanyaan. Rumus: $x^2 + 3x$" required
-                  class="w-full px-3 py-2 text-sm">{{ old('pertanyaan') }}</textarea>
+                  class="{{ $field }}">{{ old('pertanyaan') }}</textarea>
         <div class="rounded-lg bg-slate-50 p-3 text-sm">
             <div class="mb-1 text-xs font-semibold text-slate-400">PRATINJAU</div>
             <div id="pv-tanya" class="whitespace-pre-line text-slate-700">-</div>
@@ -64,23 +80,26 @@
         <div class="rounded-lg border border-dashed border-slate-300 p-3">
             <label class="mb-1 block text-sm font-medium text-slate-700">Gambar soal (opsional)</label>
             <input type="file" name="gambar" id="in-gambar" accept="image/png,image/jpeg"
-                   class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-medium file:text-blue-700">
+                   class="block w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-medium file:text-blue-700">
             <p class="mt-1 text-xs text-slate-400">JPG atau PNG, maksimal 2 MB.</p>
             <img id="pv-gambar" class="mt-2 hidden max-h-48 rounded-lg border" alt="Pratinjau gambar">
         </div>
 
         @foreach (['a', 'b', 'c', 'd', 'e'] as $o)
             <div class="flex items-center gap-2">
-                <span class="w-6 font-semibold uppercase">{{ $o }}.</span>
-                <input name="opsi_{{ $o }}" value="{{ old('opsi_'.$o) }}" required class="flex-1 px-3 py-1.5 text-sm">
+                <span class="w-6 font-semibold uppercase text-slate-700">{{ $o }}.</span>
+                <input type="text" name="opsi_{{ $o }}" value="{{ old('opsi_'.$o) }}"
+                       placeholder="Opsi {{ strtoupper($o) }}" required class="{{ $field }} flex-1">
             </div>
         @endforeach
 
         <div class="flex items-center gap-2">
-            <label class="text-sm">Kunci jawaban:</label>
-            <select name="kunci" required class="px-3 py-1.5 text-sm">
+            <label for="in-kunci" class="text-sm text-slate-700">Kunci jawaban:</label>
+            <select id="in-kunci" name="kunci" required
+                    style="color-scheme: light"
+                    class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm text-slate-900">
                 @foreach (['A', 'B', 'C', 'D', 'E'] as $k)
-                    <option @selected(old('kunci') == $k)>{{ $k }}</option>
+                    <option value="{{ $k }}" class="bg-white text-slate-900" @selected(old('kunci', 'A') == $k)>{{ $k }}</option>
                 @endforeach
             </select>
             <button class="btn-success ml-auto">Tambah</button>
@@ -131,7 +150,7 @@
         clearTimeout(timer);
         timer = setTimeout(() => {
             pvTanya.textContent = inTanya.value || '-';
-            window.renderMath(pvTanya);
+            if (window.renderMath) window.renderMath(pvTanya);
         }, 250);
     });
 
