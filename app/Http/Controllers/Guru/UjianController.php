@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Guru;
 use App\Http\Controllers\Controller;
 use App\Models\{Kelas, Mapel, Ujian};
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class UjianController extends Controller
 {
@@ -106,7 +107,13 @@ class UjianController extends Controller
     public function destroy(Ujian $ujian)
     {
         $this->pastikanMilikGuru($ujian->guru_id);
-        $ujian->delete();
+
+        DB::transaction(function () use ($ujian) {
+            $ujian->kelas()->detach();   // pivot kelas-ujian
+            $ujian->hasils()->delete();  // hasil siswa (jawaban ikut terhapus jika ada cascade)
+            $ujian->soals()->delete();   // gambar soal ikut terhapus lewat cascade soal_gambars
+            $ujian->delete();
+        });
 
         return redirect()->route('guru.ujian.index')->with('success', 'Ujian dihapus.');
     }
