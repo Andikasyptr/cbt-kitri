@@ -29,7 +29,7 @@
             </div>
 
             <div class="lg:col-span-5">
-                <form action="{{ route('siswa.token') }}" method="POST" class="rounded-xl border border-white/10 bg-white p-5 text-slate-800 shadow-xl">
+                <form action="{{ route('siswa.token') }}" method="POST" class="overflow-hidden rounded-xl border border-white/10 bg-white p-5 text-slate-800 shadow-xl">
                     @csrf
                     <div class="mb-2 flex items-center justify-between">
                         <label for="input-token" class="text-xs font-bold uppercase tracking-wider text-slate-700">
@@ -38,7 +38,7 @@
                         <span class="text-[11px] font-medium text-slate-400">6–10 Karakter</span>
                     </div>
 
-                    <div class="flex gap-2">
+                    <div class="flex flex-col gap-2 sm:flex-row">
                         <input id="input-token"
                                name="token"
                                value="{{ old('token') }}"
@@ -47,8 +47,8 @@
                                autocapitalize="characters"
                                required
                                placeholder="K7M2QX"
-                               class="min-w-0 flex-1 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-center font-mono text-lg font-bold uppercase tracking-[0.25em] text-slate-900 placeholder-slate-300 transition focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20">
-                        <button type="submit" class="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2">
+                               class="w-full min-w-0 rounded-lg border border-slate-300 bg-slate-50 px-3 py-2.5 text-center font-mono text-base font-bold uppercase tracking-[0.15em] text-slate-900 placeholder-slate-300 transition focus:border-blue-600 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-600/20 sm:flex-1">
+                        <button type="submit" class="inline-flex w-full shrink-0 items-center justify-center gap-1.5 rounded-lg bg-blue-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-800 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 sm:w-auto">
                             Mulai
                             <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
