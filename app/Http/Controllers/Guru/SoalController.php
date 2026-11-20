@@ -5,8 +5,9 @@ namespace App\Http\Controllers\Guru;
 use App\Http\Controllers\Controller;
 use App\Models\{Soal, Ujian};
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -18,14 +19,45 @@ class SoalController extends Controller
     private function rules(): array
     {
         return [
-            'pertanyaan' => 'required|string',
-            'opsi_a'     => 'required|string',
-            'opsi_b'     => 'required|string',
-            'opsi_c'     => 'required|string',
-            'opsi_d'     => 'required|string',
-            'opsi_e'     => 'required|string',
-            'kunci'      => ['required', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'pertanyaan'   => 'required|string',
+            'opsi_a'       => 'required|string',
+            'opsi_b'       => 'required|string',
+            'opsi_c'       => 'required|string',
+            'opsi_d'       => 'required|string',
+            'opsi_e'       => 'required|string',
+            'kunci'        => ['required', Rule::in(['A', 'B', 'C', 'D', 'E'])],
+            'gambar'       => 'nullable|image|mimes:jpg,jpeg,png|max:2048',
+            'hapus_gambar' => 'nullable|boolean',
         ];
+    }
+
+    // Kecilkan gambar (maks lebar 1000px), ratakan transparansi ke putih, simpan sebagai JPEG base64
+    private function simpanGambar(Soal $soal, UploadedFile $file): void
+    {
+        $raw = file_get_contents($file->getRealPath());
+        $mime = $file->getMimeType();
+
+        if (function_exists('imagecreatefromstring') && ($src = @imagecreatefromstring($raw))) {
+            $w = imagesx($src);
+            $h = imagesy($src);
+            $nw = min($w, 1000);
+            $nh = (int) round($h * $nw / $w);
+
+            $kanvas = imagecreatetruecolor($nw, $nh);
+            imagefill($kanvas, 0, 0, imagecolorallocate($kanvas, 255, 255, 255));
+            imagecopyresampled($kanvas, $src, 0, 0, 0, 0, $nw, $nh, $w, $h);
+
+            ob_start();
+            imagejpeg($kanvas, null, 85);
+            $raw = ob_get_clean();
+            $mime = 'image/jpeg';
+        }
+
+        $soal->gambar()->updateOrCreate(
+            ['soal_id' => $soal->id],
+            ['mime' => $mime, 'data' => base64_encode($raw)]
+        );
+        $soal->touch(); // penanda versi agar cache browser diganti
     }
 
     public function store(Request $request, Ujian $ujian)
@@ -33,7 +65,11 @@ class SoalController extends Controller
         $this->pastikanMilikGuru($ujian->guru_id);
         $data = $request->validate($this->rules());
 
-        $ujian->soals()->create($data);
+        $soal = $ujian->soals()->create(Arr::except($data, ['gambar', 'hapus_gambar']));
+
+        if ($request->hasFile('gambar')) {
+            $this->simpanGambar($soal, $request->file('gambar'));
+        }
 
         return back()->with('success', 'Soal ditambahkan.');
     }
@@ -41,6 +77,7 @@ class SoalController extends Controller
     public function edit(Soal $soal)
     {
         $this->pastikanMilikGuru($soal->ujian->guru_id);
+        $soal->loadExists('gambar');
 
         return view('guru.soal.edit', compact('soal'));
     }
@@ -48,7 +85,16 @@ class SoalController extends Controller
     public function update(Request $request, Soal $soal)
     {
         $this->pastikanMilikGuru($soal->ujian->guru_id);
-        $soal->update($request->validate($this->rules()));
+        $data = $request->validate($this->rules());
+
+        $soal->update(Arr::except($data, ['gambar', 'hapus_gambar']));
+
+        if ($request->hasFile('gambar')) {
+            $this->simpanGambar($soal, $request->file('gambar'));
+        } elseif ($request->boolean('hapus_gambar')) {
+            $soal->gambar()->delete();
+            $soal->touch();
+        }
 
         return redirect()->route('guru.ujian.show', $soal->ujian_id)->with('success', 'Soal diperbarui.');
     }
@@ -61,7 +107,7 @@ class SoalController extends Controller
             return back()->withErrors(['soal' => 'Ujian sudah dikerjakan siswa, soal tidak bisa dihapus.']);
         }
 
-        $soal->delete();
+        $soal->delete(); // gambar ikut terhapus (cascade)
 
         return back()->with('success', 'Soal dihapus.');
     }
@@ -80,17 +126,17 @@ class SoalController extends Controller
         $rows = IOFactory::load($request->file('file')->getRealPath())
             ->getActiveSheet()->toArray(null, true, true, false);
 
-        array_shift($rows); // buang baris header
+        array_shift($rows);
 
         $siap = [];
         $dilewati = [];
 
         foreach ($rows as $i => $r) {
-            $baris = $i + 2; // nomor baris di Excel
+            $baris = $i + 2;
             $r = array_map(fn ($v) => trim((string) $v), array_slice(array_pad($r, 7, ''), 0, 7));
 
             if (implode('', $r) === '') {
-                continue; // baris kosong
+                continue;
             }
 
             [$tanya, $a, $b, $c, $d, $e, $kunci] = $r;
@@ -143,7 +189,7 @@ class SoalController extends Controller
         $sheet->fromArray(['Pertanyaan', 'Opsi A', 'Opsi B', 'Opsi C', 'Opsi D', 'Opsi E', 'Kunci (A-E)'], null, 'A1');
         $sheet->fromArray([
             ['Ibu kota negara Indonesia adalah ...', 'Surabaya', 'Bandung', 'Jakarta', 'Medan', 'Makassar', 'C'],
-            ['Hasil dari 5 + 3 adalah ...', '6', '7', '8', '9', '10', 'C'],
+            ['Turunan pertama dari $f(x)=x^3+2x$ adalah ...', '$3x^2+2$', '$x^2+2$', '$3x+2$', '$x^3$', '$2x$', 'A'],
         ], null, 'A2');
 
         $sheet->getStyle('A1:G1')->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');

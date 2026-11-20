@@ -30,7 +30,10 @@ class SoalController extends Controller
 
     public function show(Ujian $ujian)
     {
-        $ujian->load(['guru', 'mapel', 'kelas.jurusan', 'soals']);
+        $ujian->load([
+            'guru', 'mapel', 'kelas.jurusan',
+            'soals' => fn ($q) => $q->withExists('gambar'),
+        ]);
 
         return view('admin.soal.show', compact('ujian'));
     }

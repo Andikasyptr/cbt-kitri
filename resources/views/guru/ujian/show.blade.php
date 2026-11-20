@@ -3,28 +3,28 @@
 @section('content')
 
 {{-- Ringkasan + token --}}
-<div class="grid lg:grid-cols-3 gap-6 mb-6">
-    <div class="lg:col-span-2 bg-white rounded-xl shadow p-5 text-sm space-y-1">
-        <div class="flex items-center gap-2 mb-2">
+<div class="mb-6 grid gap-6 lg:grid-cols-3">
+    <div class="card space-y-1 p-5 text-sm lg:col-span-2">
+        <div class="mb-2 flex items-center gap-2">
             @include('guru.ujian._badge', ['u' => $ujian])
             <span class="text-slate-500">{{ $ujian->mapel->nama ?? '-' }}</span>
         </div>
         <div><span class="text-slate-500">Kelas:</span> {{ $ujian->kelas->map->nama_lengkap->implode(', ') }}</div>
         <div><span class="text-slate-500">Jadwal:</span> {{ $ujian->waktu_mulai->translatedFormat('d M Y H:i') }} s/d {{ $ujian->waktu_selesai->translatedFormat('d M Y H:i') }}</div>
         <div><span class="text-slate-500">Durasi:</span> {{ $ujian->durasi_menit }} menit &middot; {{ $ujian->acak_soal ? 'Soal diacak' : 'Soal berurutan' }}</div>
-        <div class="pt-3 flex flex-wrap gap-2">
-            <a href="{{ route('guru.ujian.edit', $ujian) }}" class="border rounded-lg px-3 py-1.5 hover:bg-slate-50">Edit</a>
-            <a href="{{ route('guru.nilai.index', $ujian) }}" class="bg-green-600 text-white rounded-lg px-3 py-1.5 hover:bg-green-700">Lihat Nilai</a>
+        <div class="flex flex-wrap gap-2 pt-3">
+            <a href="{{ route('guru.ujian.edit', $ujian) }}" class="btn-ghost">Edit</a>
+            <a href="{{ route('guru.nilai.index', $ujian) }}" class="btn-success">Lihat Nilai</a>
             <form action="{{ route('guru.ujian.toggle', $ujian) }}" method="POST">
                 @csrf
-                <button class="border rounded-lg px-3 py-1.5 hover:bg-slate-50">{{ $ujian->aktif ? 'Nonaktifkan' : 'Aktifkan' }}</button>
+                <button class="btn-ghost">{{ $ujian->aktif ? 'Nonaktifkan' : 'Aktifkan' }}</button>
             </form>
         </div>
     </div>
 
-    <div class="bg-slate-900 text-white rounded-xl shadow p-5 text-center">
+    <div class="rounded-2xl bg-slate-900 p-5 text-center text-white shadow-sm">
         <div class="text-xs uppercase tracking-wider text-slate-400">Token Ujian</div>
-        <div class="text-4xl font-mono font-bold tracking-[0.3em] my-3">{{ $ujian->token }}</div>
+        <div class="my-3 font-mono text-4xl font-bold tracking-[0.3em]">{{ $ujian->token }}</div>
         <form action="{{ route('guru.ujian.token', $ujian) }}" method="POST"
               onsubmit="return confirm('Buat token baru? Token lama tidak berlaku lagi.')">
             @csrf
@@ -33,59 +33,80 @@
     </div>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-6 mb-6">
+<div class="mb-6 grid gap-6 lg:grid-cols-2">
     {{-- Import Excel --}}
-    <div class="bg-white rounded-xl shadow p-5 space-y-3">
-        <h2 class="font-semibold">Import Soal dari Excel</h2>
-        <p class="text-sm text-slate-500">Kolom: Pertanyaan, Opsi A–E, Kunci (A–E). Baris pertama adalah header.</p>
+    <div class="card h-fit space-y-3 p-5">
+        <h2 class="font-semibold text-slate-900">Import Soal dari Excel</h2>
+        <p class="text-sm text-slate-500">Kolom: Pertanyaan, Opsi A–E, Kunci (A–E). Baris pertama adalah header. Gambar ditambahkan lewat tombol Edit setelah import.</p>
         <a href="{{ route('guru.soal.template', $ujian) }}" class="inline-block text-sm text-blue-600 hover:underline">⬇ Download template Excel</a>
         <form action="{{ route('guru.soal.import', $ujian) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
             @csrf
-            <input type="file" name="file" accept=".xlsx,.xls" required class="block w-full text-sm border rounded-lg p-2">
+            <input type="file" name="file" accept=".xlsx,.xls" required class="block w-full rounded-lg border p-2 text-sm">
             <label class="flex items-center gap-2 text-sm">
                 <input type="checkbox" name="hapus_lama" value="1"> Hapus semua soal lama sebelum import
             </label>
-            <button class="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-4 py-2 text-sm">Import</button>
+            <button class="btn-primary">Import</button>
         </form>
     </div>
 
     {{-- Soal manual --}}
-    <form action="{{ route('guru.soal.store', $ujian) }}" method="POST" class="bg-white rounded-xl shadow p-5 space-y-3">
+    <form action="{{ route('guru.soal.store', $ujian) }}" method="POST" enctype="multipart/form-data" class="card space-y-3 p-5">
         @csrf
-        <h2 class="font-semibold">Tambah Soal Manual</h2>
-        <textarea name="pertanyaan" rows="3" placeholder="Pertanyaan" required class="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm">{{ old('pertanyaan') }}</textarea>
+        <h2 class="font-semibold text-slate-900">Tambah Soal Manual</h2>
+
+        <textarea id="in-tanya" name="pertanyaan" rows="3" placeholder="Pertanyaan. Rumus: $x^2 + 3x$" required
+                  class="w-full px-3 py-2 text-sm">{{ old('pertanyaan') }}</textarea>
+        <div class="rounded-lg bg-slate-50 p-3 text-sm">
+            <div class="mb-1 text-xs font-semibold text-slate-400">PRATINJAU</div>
+            <div id="pv-tanya" class="whitespace-pre-line text-slate-700">-</div>
+        </div>
+
+        <div class="rounded-lg border border-dashed border-slate-300 p-3">
+            <label class="mb-1 block text-sm font-medium text-slate-700">Gambar soal (opsional)</label>
+            <input type="file" name="gambar" id="in-gambar" accept="image/png,image/jpeg"
+                   class="block w-full text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-blue-50 file:px-3 file:py-1.5 file:font-medium file:text-blue-700">
+            <p class="mt-1 text-xs text-slate-400">JPG atau PNG, maksimal 2 MB.</p>
+            <img id="pv-gambar" class="mt-2 hidden max-h-48 rounded-lg border" alt="Pratinjau gambar">
+        </div>
+
         @foreach (['a', 'b', 'c', 'd', 'e'] as $o)
             <div class="flex items-center gap-2">
                 <span class="w-6 font-semibold uppercase">{{ $o }}.</span>
-                <input name="opsi_{{ $o }}" value="{{ old('opsi_'.$o) }}" required class="flex-1 rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+                <input name="opsi_{{ $o }}" value="{{ old('opsi_'.$o) }}" required class="flex-1 px-3 py-1.5 text-sm">
             </div>
         @endforeach
+
         <div class="flex items-center gap-2">
             <label class="text-sm">Kunci jawaban:</label>
-            <select name="kunci" required class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm">
+            <select name="kunci" required class="px-3 py-1.5 text-sm">
                 @foreach (['A', 'B', 'C', 'D', 'E'] as $k)
                     <option @selected(old('kunci') == $k)>{{ $k }}</option>
                 @endforeach
             </select>
-            <button class="ml-auto bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2 text-sm">Tambah</button>
+            <button class="btn-success ml-auto">Tambah</button>
         </div>
     </form>
 </div>
 
 {{-- Daftar soal --}}
-<div class="bg-white rounded-xl shadow overflow-hidden">
-    <div class="p-4 border-b font-semibold">Daftar Soal ({{ $ujian->soals->count() }})</div>
+<div class="card overflow-x-auto">
+    <div class="border-b border-slate-100 p-4 font-semibold text-slate-900">Daftar Soal ({{ $ujian->soals->count() }})</div>
     <table class="w-full text-sm">
-        <thead class="bg-slate-50 text-left">
-            <tr><th class="p-3 w-12">No</th><th class="p-3">Pertanyaan</th><th class="p-3 w-20">Kunci</th><th class="p-3 w-32"></th></tr>
+        <thead class="bg-slate-50 text-left text-slate-600">
+            <tr><th class="w-12 p-3">No</th><th class="p-3">Pertanyaan</th><th class="w-20 p-3">Kunci</th><th class="w-32 p-3"></th></tr>
         </thead>
         <tbody>
         @forelse ($ujian->soals as $i => $s)
-            <tr class="border-t align-top">
+            <tr class="border-t border-slate-100 align-top">
                 <td class="p-3">{{ $i + 1 }}</td>
-                <td class="p-3 whitespace-pre-line">{{ Str::limit($s->pertanyaan, 150) }}</td>
+                <td class="p-3">
+                    <div class="whitespace-pre-line">{{ $s->pertanyaan }}</div>
+                    @if ($s->gambar_exists)
+                        <img src="{{ route('soal.gambar', $s) }}?v={{ $s->updated_at->timestamp }}" class="mt-2 max-h-24 rounded border" alt="Gambar soal">
+                    @endif
+                </td>
                 <td class="p-3 font-bold">{{ $s->kunci }}</td>
-                <td class="p-3 text-right space-x-3 whitespace-nowrap">
+                <td class="space-x-3 whitespace-nowrap p-3 text-right">
                     <a href="{{ route('guru.soal.edit', $s) }}" class="text-blue-600 hover:underline">Edit</a>
                     <form action="{{ route('guru.soal.destroy', $s) }}" method="POST" class="inline"
                           onsubmit="return confirm('Hapus soal ini?')">
@@ -100,4 +121,26 @@
         </tbody>
     </table>
 </div>
+
+@push('scripts')
+<script>
+    const inTanya = document.getElementById('in-tanya');
+    const pvTanya = document.getElementById('pv-tanya');
+    let timer;
+    inTanya.addEventListener('input', () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+            pvTanya.textContent = inTanya.value || '-';
+            window.renderMath(pvTanya);
+        }, 250);
+    });
+
+    document.getElementById('in-gambar').addEventListener('change', (e) => {
+        const f = e.target.files[0], img = document.getElementById('pv-gambar');
+        if (!f) { img.classList.add('hidden'); return; }
+        img.src = URL.createObjectURL(f);
+        img.classList.remove('hidden');
+    });
+</script>
+@endpush
 @endsection

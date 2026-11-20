@@ -11,7 +11,7 @@
 </head>
 <body class="bg-slate-100 text-slate-800 min-h-screen">
 
-{{-- Overlay: wajib diklik untuk masuk fullscreen (browser mewajibkan aksi klik) --}}
+{{-- Overlay: wajib diklik untuk masuk fullscreen --}}
 <div id="overlay" class="fixed inset-0 z-50 bg-slate-900/95 flex items-center justify-center p-6 text-center text-white">
     <div class="max-w-md">
         <h2 id="overlay-judul" class="text-2xl font-bold mb-2">Ujian siap dimulai</h2>
@@ -34,6 +34,11 @@
             <button id="btn-yakin" class="bg-green-600 hover:bg-green-700 text-white rounded-lg px-4 py-2">Ya, Kumpulkan</button>
         </div>
     </div>
+</div>
+
+{{-- Modal perbesar gambar --}}
+<div id="zoom" class="fixed inset-0 z-[60] hidden cursor-zoom-out items-center justify-center bg-black/80 p-4">
+    <img id="zoom-img" class="max-h-full max-w-full rounded-lg bg-white" alt="Gambar soal diperbesar" draggable="false">
 </div>
 
 <form id="form-selesai" action="{{ route('siswa.ujian.selesai', $hasil) }}" method="POST" class="hidden">@csrf</form>
@@ -61,6 +66,11 @@
             <div id="status-simpan" class="text-xs text-slate-400"></div>
         </div>
         <div id="q-text" class="text-lg mb-6 whitespace-pre-line"></div>
+
+        <div id="q-img-wrap" class="mb-6 hidden">
+            <img id="q-img" class="max-h-80 max-w-full cursor-zoom-in rounded-lg border bg-white object-contain" alt="Gambar soal" draggable="false">
+        </div>
+
         <div id="opsi" class="space-y-2"></div>
 
         <div class="flex justify-between mt-8">
@@ -88,7 +98,7 @@ const URL_JAWAB = @json(route('siswa.ujian.jawab', $hasil));
 const URL_PELANGGARAN = @json(route('siswa.ujian.pelanggaran', $hasil));
 const csrf = document.querySelector('meta[name=csrf-token]').content;
 
-const target = Date.now() + {{ $sisa }} * 1000; // batas waktu, dihitung dari sisa waktu server
+const target = Date.now() + {{ $sisa }} * 1000; // batas waktu dari sisa waktu server
 let idx = 0, mulai = false, selesai = false, pelanggaran = {{ $hasil->pelanggaran }}, lastViolation = 0;
 
 const $ = (id) => document.getElementById(id);
@@ -107,6 +117,15 @@ function render() {
     const s = SOAL[idx];
     $('q-no').textContent = `Soal ${idx + 1} dari ${SOAL.length}`;
     $('q-text').textContent = s.pertanyaan;
+
+    const wrap = $('q-img-wrap');
+    if (s.gambar) {
+        $('q-img').src = s.gambar;
+        wrap.classList.remove('hidden');
+    } else {
+        wrap.classList.add('hidden');
+        $('q-img').removeAttribute('src');
+    }
 
     $('opsi').innerHTML = '';
     Object.entries(s.opsi).forEach(([huruf, teks]) => {
@@ -162,6 +181,17 @@ async function jawab(soalId, huruf) {
 
 $('btn-prev').onclick = () => { if (idx > 0) { idx--; render(); } };
 $('btn-next').onclick = () => { if (idx < SOAL.length - 1) { idx++; render(); } };
+
+// Klik gambar untuk memperbesar
+$('q-img').onclick = () => {
+    $('zoom-img').src = $('q-img').src;
+    $('zoom').classList.remove('hidden');
+    $('zoom').classList.add('flex');
+};
+$('zoom').onclick = () => {
+    $('zoom').classList.add('hidden');
+    $('zoom').classList.remove('flex');
+};
 
 // ---------- Timer ----------
 function tick() {
@@ -224,7 +254,7 @@ async function catatPelanggaran(alasan) {
     if (!mulai || selesai) return;
 
     const sekarang = Date.now();
-    if (sekarang - lastViolation < 3000) return; // satu kejadian sering memicu beberapa event
+    if (sekarang - lastViolation < 3000) return;
     lastViolation = sekarang;
 
     try {
@@ -235,7 +265,7 @@ async function catatPelanggaran(alasan) {
         const pesan = `Pelanggaran ${pelanggaran} dari ${BATAS}: ${alasan}. Ujian otomatis dikumpulkan pada pelanggaran ke-${BATAS}.`;
         $('overlay-warn').textContent = pesan;
         toast(pesan);
-    } catch (e) { /* koneksi putus: abaikan, jangan menghentikan ujian */ }
+    } catch (e) { /* koneksi putus: abaikan */ }
 }
 
 document.addEventListener('fullscreenchange', () => {

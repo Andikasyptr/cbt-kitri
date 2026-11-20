@@ -127,8 +127,11 @@ class UjianController extends Controller
 
         $ujian = $hasil->ujian()->with('mapel')->first();
 
-        // Hanya kirim kolom yang dibutuhkan. Kunci jawaban TIDAK dikirim ke browser.
-        $soals = $ujian->soals()->get(['id', 'pertanyaan', 'opsi_a', 'opsi_b', 'opsi_c', 'opsi_d', 'opsi_e']);
+        // Hanya kolom yang dibutuhkan. Kunci jawaban TIDAK dikirim ke browser.
+        $soals = $ujian->soals()
+            ->select(['id', 'pertanyaan', 'opsi_a', 'opsi_b', 'opsi_c', 'opsi_d', 'opsi_e', 'updated_at'])
+            ->withExists('gambar')
+            ->get();
 
         // Urutan acak yang tetap sama untuk siswa ini (aman saat halaman di-refresh)
         if ($ujian->acak_soal) {
@@ -139,6 +142,9 @@ class UjianController extends Controller
             'id'         => $s->id,
             'pertanyaan' => $s->pertanyaan,
             'opsi'       => $s->opsi,
+            'gambar'     => $s->gambar_exists
+                ? route('soal.gambar', $s) . '?v=' . $s->updated_at->timestamp
+                : null,
         ])->all();
 
         return view('siswa.kerjakan', [
@@ -167,7 +173,6 @@ class UjianController extends Controller
             'jawaban' => 'required|in:A,B,C,D,E',
         ]);
 
-        // Pastikan soal memang milik ujian ini
         abort_unless($hasil->ujian->soals()->whereKey($data['soal_id'])->exists(), 422);
 
         $hasil->jawabans()->updateOrCreate(

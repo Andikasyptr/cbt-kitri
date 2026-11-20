@@ -68,7 +68,11 @@ class UjianController extends Controller
     public function show(Ujian $ujian)
     {
         $this->pastikanMilikGuru($ujian->guru_id);
-        $ujian->load(['mapel', 'kelas.jurusan', 'soals']);
+
+        $ujian->load([
+            'mapel', 'kelas.jurusan',
+            'soals' => fn ($q) => $q->withExists('gambar'),
+        ]);
 
         return view('guru.ujian.show', compact('ujian'));
     }
@@ -102,7 +106,7 @@ class UjianController extends Controller
     public function destroy(Ujian $ujian)
     {
         $this->pastikanMilikGuru($ujian->guru_id);
-        $ujian->delete(); // soal, hasil, dan jawaban ikut terhapus (cascade)
+        $ujian->delete();
 
         return redirect()->route('guru.ujian.index')->with('success', 'Ujian dihapus.');
     }

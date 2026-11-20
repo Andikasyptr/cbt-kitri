@@ -26,4 +26,9 @@ class Soal extends Model
             'E' => $this->opsi_e,
         ];
     }
+
+    public function gambar(): HasOne
+{
+    return $this->hasOne(SoalGambar::class);
+}
 }

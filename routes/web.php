@@ -7,6 +7,7 @@ use App\Http\Controllers\Admin\MapelController;
 use App\Http\Controllers\Admin\SoalController as AdminSoalController;
 use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\GambarSoalController;
 use App\Http\Controllers\Guru;
 use App\Http\Controllers\Siswa;
 use Illuminate\Support\Facades\Route;
@@ -21,22 +22,24 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
+// Gambar soal (hak akses diperiksa di dalam controller)
+Route::get('/gambar/soal/{soal}', [GambarSoalController::class, 'show'])
+    ->middleware('auth')->name('soal.gambar');
+
 // ===================== ADMIN =====================
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
     Route::get('/', [AdminDashboardController::class, 'index'])->name('dashboard');
 
     Route::resource('jurusan', JurusanController::class)->only(['index', 'store', 'destroy']);
     Route::resource('kelas', KelasController::class)->only(['index', 'store', 'destroy'])
-        ->parameters(['kelas' => 'kelas']); // tanpa ini Laravel menyingkat jadi "kela"
+        ->parameters(['kelas' => 'kelas']);
     Route::resource('mapel', MapelController::class)->only(['index', 'store', 'destroy']);
 
-    // Akun guru
     Route::get('guru', [UserController::class, 'index'])->defaults('role', 'guru')->name('guru.index');
     Route::post('guru', [UserController::class, 'store'])->defaults('role', 'guru')->name('guru.store');
     Route::get('guru/template', [UserController::class, 'template'])->defaults('role', 'guru')->name('guru.template');
     Route::post('guru/import', [UserController::class, 'import'])->defaults('role', 'guru')->name('guru.import');
 
-    // Akun siswa
     Route::get('siswa', [UserController::class, 'index'])->defaults('role', 'siswa')->name('siswa.index');
     Route::post('siswa', [UserController::class, 'store'])->defaults('role', 'siswa')->name('siswa.store');
     Route::get('siswa/template', [UserController::class, 'template'])->defaults('role', 'siswa')->name('siswa.template');
@@ -44,7 +47,6 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
 
     Route::delete('akun/{user}', [UserController::class, 'destroy'])->name('akun.destroy');
 
-    // Daftar soal (hanya lihat)
     Route::get('soal', [AdminSoalController::class, 'index'])->name('soal.index');
     Route::get('soal/{ujian}', [AdminSoalController::class, 'show'])->name('soal.show');
 });

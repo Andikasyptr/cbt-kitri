@@ -36,6 +36,11 @@
                 <span class="rounded-full bg-green-100 px-2.5 py-0.5 text-xs font-semibold text-green-700">Kunci: {{ $s->kunci ?? '-' }}</span>
             </div>
             <p class="mb-4 whitespace-pre-line">{{ $s->pertanyaan }}</p>
+
+            @if ($s->gambar_exists)
+                <img src="{{ route('soal.gambar', $s) }}?v={{ $s->updated_at->timestamp }}" class="mb-4 max-h-72 rounded-lg border" alt="Gambar soal">
+            @endif
+
             <div class="space-y-2">
                 @foreach ($s->opsi as $huruf => $teks)
                     {{-- kunci --}}
