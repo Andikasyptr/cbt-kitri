@@ -11,8 +11,9 @@
     $warna = $guru ? 'bg-violet-100 text-violet-700' : 'bg-emerald-100 text-emerald-700';
     $inisial = fn ($n) => collect(explode(' ', trim($n)))->filter()->take(2)->map(fn ($k) => mb_strtoupper(mb_substr($k, 0, 1)))->implode('');
     $filterAktif = request('q') || request('kelas_id') || request('status');
+    $pilihanPerHalaman = [10, 25, 50, 100, 250, 500];
 @endphp
-
+ 
 {{-- Header halaman --}}
 <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
@@ -35,7 +36,7 @@
         <button type="button" onclick="document.getElementById('dlg-tambah').showModal()" class="btn-primary">Tambah {{ $label }}</button>
     </div>
 </div>
-
+ 
 {{-- Pencarian & filter --}}
 <form method="GET" class="card mb-4 flex flex-col gap-2 p-3 sm:flex-row sm:p-4">
     <input name="q" value="{{ request('q') }}" placeholder="Cari nama, username, atau {{ $induk }}" class="flex-1 px-3 py-2">
@@ -52,19 +53,26 @@
             <option value="blokir" @selected(request('status') === 'blokir')>Diblokir</option>
         </select>
     @endunless
+    <select name="per_page" class="px-3 py-2 sm:w-32" title="Jumlah data per halaman" onchange="this.form.submit()">
+        @foreach ($pilihanPerHalaman as $n)
+            <option value="{{ $n }}" @selected((int) request('per_page', 10) === $n)>{{ $n }} / hal</option>
+        @endforeach
+    </select>
     <button class="btn bg-slate-800 text-white hover:bg-slate-900">Cari</button>
     @if ($filterAktif)
-        <a href="{{ url()->current() }}" class="btn-ghost">Reset</a>
+        <a href="{{ url()->current() }}?per_page={{ request('per_page', 10) }}" class="btn-ghost">Reset</a>
     @endif
 </form>
-
+ 
 {{-- Aksi massal untuk siswa yang dicentang --}}
 @unless ($guru)
     <form id="form-massal" action="{{ route('admin.siswa.blokir.massal') }}" method="POST"
           class="card mb-4 flex flex-col gap-2 p-3 sm:flex-row sm:items-center">
         @csrf
         <input type="hidden" name="mode" value="pilihan">
-        <span class="text-sm font-medium text-slate-700">Siswa yang dicentang:</span>
+        <span class="text-sm font-medium text-slate-700">
+            Siswa yang dicentang: <b id="jml-dipilih" class="text-blue-600">0</b>
+        </span>
         <select name="aksi" class="px-3 py-2 sm:w-40">
             <option value="blokir">Blokir</option>
             <option value="buka">Buka akses</option>
@@ -73,7 +81,7 @@
         <button class="btn bg-slate-800 text-white hover:bg-slate-900">Terapkan</button>
     </form>
 @endunless
-
+ 
 {{-- Tabel (desktop) --}}
 <div class="card hidden overflow-hidden md:block">
     <table class="w-full text-sm">
@@ -96,7 +104,7 @@
         @forelse ($users as $u)
             <tr class="{{ $u->diblokir ? 'bg-red-50/40' : 'hover:bg-slate-50/70' }}">
                 @unless ($guru)
-                    <td class="px-4 py-3"><input type="checkbox" class="cek-baris" name="ids[]" value="{{ $u->id }}" form="form-massal"></td>
+                    <td class="px-4 py-3"><input type="checkbox" class="cek-baris" value="{{ $u->id }}"></td>
                 @endunless
                 <td class="px-4 py-3">
                     <div class="flex items-center gap-3">
@@ -144,14 +152,14 @@
         </tbody>
     </table>
 </div>
-
+ 
 {{-- Kartu (HP) --}}
 <div class="space-y-3 md:hidden">
     @forelse ($users as $u)
         <div class="card p-4 {{ $u->diblokir ? 'ring-red-200' : '' }}">
             <div class="flex items-start gap-3">
                 @unless ($guru)
-                    <input type="checkbox" class="cek-baris mt-3" name="ids[]" value="{{ $u->id }}" form="form-massal">
+                    <input type="checkbox" class="cek-baris mt-3" value="{{ $u->id }}">
                 @endunless
                 <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold {{ $warna }}">{{ $inisial($u->name) }}</div>
                 <div class="min-w-0 flex-1">
@@ -195,9 +203,15 @@
         <div class="card p-10 text-center text-sm text-slate-400">Belum ada data {{ strtolower($label) }}.</div>
     @endforelse
 </div>
-
-<div class="mt-4">{{ $users->links() }}</div>
-
+ 
+<div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <p class="text-xs text-slate-500">
+        Menampilkan {{ number_format($users->firstItem() ?? 0) }}&ndash;{{ number_format($users->lastItem() ?? 0) }}
+        dari {{ number_format($users->total()) }} data
+    </p>
+    <div>{{ $users->links() }}</div>
+</div>
+ 
 {{-- ============ Dialog: Tambah ============ --}}
 <dialog id="dlg-tambah" class="w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
     <form action="{{ route($routeStore) }}" method="POST" class="space-y-4 p-6">
@@ -241,7 +255,7 @@
         </div>
     </form>
 </dialog>
-
+ 
 {{-- ============ Dialog: Import akun ============ --}}
 <dialog id="dlg-import" class="w-[calc(100%-2rem)] max-w-lg rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
     <form action="{{ route($routeImport) }}" method="POST" enctype="multipart/form-data" class="space-y-4 p-6">
@@ -266,7 +280,7 @@
         </div>
     </form>
 </dialog>
-
+ 
 @unless ($guru)
 {{-- ============ Dialog: Blokir akses (SPP) ============ --}}
 <dialog id="dlg-blokir" class="w-[calc(100%-2rem)] max-w-lg rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
@@ -275,12 +289,12 @@
             <h3 class="text-lg font-bold text-slate-900">Blokir / Buka Akses Siswa</h3>
             <button type="button" onclick="this.closest('dialog').close()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Tutup">&#10005;</button>
         </div>
-
+ 
         <p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             Siswa yang diblokir tidak bisa login dan langsung dikeluarkan jika sedang online. Akun, nilai, dan data lain tetap aman.
             Untuk memblokir satu per satu, atau memilih beberapa siswa, gunakan tombol di tabel.
         </p>
-
+ 
         {{-- Per kelas --}}
         <form action="{{ route('admin.siswa.blokir.massal') }}" method="POST" class="space-y-3 rounded-xl border border-slate-200 p-4">
             @csrf
@@ -302,7 +316,7 @@
             </div>
             <button class="btn bg-slate-800 text-white hover:bg-slate-900" onclick="return confirm('Terapkan ke seluruh siswa di kelas yang dipilih?')">Terapkan ke kelas</button>
         </form>
-
+ 
         {{-- Dari Excel --}}
         <form action="{{ route('admin.siswa.blokir.import') }}" method="POST" enctype="multipart/form-data" class="space-y-3 rounded-xl border border-slate-200 p-4">
             @csrf
@@ -322,20 +336,20 @@
     </div>
 </dialog>
 @endunless
-
+ 
 @push('scripts')
 <script>
     // Buka kembali dialog tambah jika validasi gagal
     @if ($errors->any() && old('username') && ! $errors->has('import') && ! $errors->has('file') && ! $errors->has('blokir'))
         document.getElementById('dlg-tambah').showModal();
     @endif
-
+ 
     // Cegah klik ganda saat import
     document.querySelector('#dlg-import form').addEventListener('submit', function () {
         const b = document.getElementById('btn-do-import');
         b.disabled = true; b.textContent = 'Memproses...';
     });
-
+ 
     // Tanya alasan saat memblokir satu siswa; konfirmasi saat membuka akses
     function setAlasan(form, sudahDiblokir) {
         if (sudahDiblokir) return confirm('Buka akses siswa ini?');
@@ -344,13 +358,60 @@
         form.querySelector('input[name=alasan]').value = alasan;
         return true;
     }
-
-    // Centang semua siswa di halaman
+ 
+    // ===== Pilih siswa (centang) =====
+    // Hanya checkbox yang terlihat (desktop ATAU HP) yang dihitung
+    const barisTerlihat = () =>
+        [...document.querySelectorAll('.cek-baris')].filter((c) => c.offsetParent !== null);
+ 
     const cekSemua = document.getElementById('cek-semua');
+    const jml = document.getElementById('jml-dipilih');
+ 
+    const hitung = () => {
+        if (!jml) return;
+        const semua = barisTerlihat();
+        const n = semua.filter((c) => c.checked).length;
+        jml.textContent = n;
+        if (cekSemua) {
+            cekSemua.checked = semua.length > 0 && n === semua.length;
+            cekSemua.indeterminate = n > 0 && n < semua.length;
+        }
+    };
+ 
     if (cekSemua) {
-        cekSemua.addEventListener('change', () =>
-            document.querySelectorAll('.cek-baris').forEach((c) => (c.checked = cekSemua.checked)));
+        cekSemua.addEventListener('change', () => {
+            barisTerlihat().forEach((c) => (c.checked = cekSemua.checked));
+            hitung();
+        });
+    }
+    document.querySelectorAll('.cek-baris').forEach((c) => c.addEventListener('change', hitung));
+ 
+    // Kumpulkan ID yang dicentang saat form massal dikirim
+    const formMassal = document.getElementById('form-massal');
+    if (formMassal) {
+        formMassal.addEventListener('submit', function (e) {
+            const ids = new Set(barisTerlihat().filter((c) => c.checked).map((c) => c.value));
+            if (ids.size === 0) {
+                e.preventDefault();
+                alert('Pilih minimal satu siswa.');
+                return;
+            }
+            const aksi = this.querySelector('[name=aksi]').value === 'blokir' ? 'Blokir' : 'Buka akses';
+            if (!confirm(`${aksi} ${ids.size} siswa?`)) {
+                e.preventDefault();
+                return;
+            }
+            this.querySelectorAll('input[name="ids[]"]').forEach((i) => i.remove());
+            ids.forEach((v) => {
+                const i = document.createElement('input');
+                i.type = 'hidden';
+                i.name = 'ids[]';
+                i.value = v;
+                this.appendChild(i);
+            });
+        });
     }
 </script>
 @endpush
 @endsection
+ 

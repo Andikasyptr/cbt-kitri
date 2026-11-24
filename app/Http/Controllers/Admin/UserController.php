@@ -15,8 +15,14 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class UserController extends Controller
 {
+    // Pilihan jumlah data per halaman (whitelist)
+    private const PER_PAGE = [10, 25, 50, 100, 250, 500];
+
     public function index(Request $request, string $role)
     {
+        $perPage = (int) $request->input('per_page', 10);
+        $perPage = in_array($perPage, self::PER_PAGE, true) ? $perPage : 10;
+
         $users = User::with('kelas.jurusan')
             ->where('role', $role)
             ->when($request->q, fn ($q, $s) => $q->where(fn ($w) => $w
@@ -27,7 +33,7 @@ class UserController extends Controller
             ->when($role === 'siswa' && $request->status === 'blokir', fn ($q) => $q->where('diblokir', true))
             ->when($role === 'siswa' && $request->status === 'aktif', fn ($q) => $q->where(fn ($w) => $w->where('diblokir', false)->orWhereNull('diblokir')))
             ->orderBy('name')
-            ->paginate(20)
+            ->paginate($perPage)
             ->withQueryString();
 
         return view('admin.users.index', [
@@ -95,7 +101,7 @@ class UserController extends Controller
             'mode'     => 'required|in:pilihan,kelas',
             'aksi'     => 'required|in:blokir,buka',
             'alasan'   => 'nullable|string|max:150',
-            'ids'      => 'nullable|array',
+            'ids'      => 'nullable|array|max:1000',
             'ids.*'    => 'integer',
             'kelas_id' => 'nullable|string',
         ]);
