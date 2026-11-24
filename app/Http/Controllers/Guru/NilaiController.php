@@ -11,30 +11,37 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class NilaiController extends Controller
 {
-    public function index(Ujian $ujian)
-    {
-        $this->pastikanMilikGuru($ujian->guru_id);
-        $ujian->load(['mapel', 'kelas.jurusan']);
+   public function index(Ujian $ujian)
+{
+    $this->pastikanMilikGuru($ujian->guru_id);
+    $ujian->load(['mapel', 'kelas.jurusan']);
 
-        $hasils = $ujian->hasils()->with('siswa.kelas.jurusan')->get()
-            ->sortBy(fn ($h) => $h->siswa->name)->values();
+    // Tutup & hitung nilai siswa yang waktunya sudah habis tapi belum mengumpulkan
+    $ujian->hasils()->whereNull('selesai_at')->with('ujian')->get()
+        ->each(function ($h) {
+            if ($h->sisaDetik() <= 0) {
+                $h->selesaikan();
+            }
+        });
 
-        $selesai = $hasils->whereNotNull('selesai_at');
-        $stat = [
-            'selesai'   => $selesai->count(),
-            'rata'      => $selesai->count() ? round($selesai->avg('nilai'), 2) : 0,
-            'tertinggi' => $selesai->max('nilai') ?? 0,
-            'terendah'  => $selesai->min('nilai') ?? 0,
-        ];
+    $hasils = $ujian->hasils()->with('siswa.kelas.jurusan')->get()
+        ->sortBy(fn ($h) => $h->siswa->name)->values();
 
-        // Siswa di kelas peserta yang belum mengerjakan
-        $belum = User::siswa()
-            ->whereIn('kelas_id', $ujian->kelas->pluck('id'))
-            ->whereNotIn('id', $hasils->pluck('user_id'))
-            ->with('kelas.jurusan')->orderBy('name')->get();
+    $selesai = $hasils->whereNotNull('selesai_at');
+    $stat = [
+        'selesai'   => $selesai->count(),
+        'rata'      => $selesai->count() ? round($selesai->avg('nilai'), 2) : 0,
+        'tertinggi' => $selesai->max('nilai') ?? 0,
+        'terendah'  => $selesai->min('nilai') ?? 0,
+    ];
 
-        return view('guru.nilai.index', compact('ujian', 'hasils', 'stat', 'belum'));
-    }
+    $belum = User::siswa()
+        ->whereIn('kelas_id', $ujian->kelas->pluck('id'))
+        ->whereNotIn('id', $hasils->pluck('user_id'))
+        ->with('kelas.jurusan')->orderBy('name')->get();
+
+    return view('guru.nilai.index', compact('ujian', 'hasils', 'stat', 'belum'));
+}
 
     public function export(Ujian $ujian)
     {
