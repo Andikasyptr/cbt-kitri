@@ -11,12 +11,17 @@ class DashboardController extends Controller
     {
         $user = auth()->user()->load('kelas.jurusan');
 
-        // Hanya ujian yang ditujukan untuk kelas siswa ini
+        $awal  = now()->startOfDay();
+        $akhir = now()->endOfDay();
+
+        // Hanya ujian untuk kelas siswa ini yang jadwalnya mencakup hari ini
         $ujians = $user->kelas_id
             ? Ujian::untukKelas($user->kelas_id)
                 ->where('aktif', true)
+                ->where('waktu_mulai', '<=', $akhir)
+                ->where('waktu_selesai', '>=', $awal)
                 ->with('mapel')
-                ->orderByDesc('waktu_mulai')
+                ->orderBy('waktu_mulai')
                 ->get()
             : collect();
 
