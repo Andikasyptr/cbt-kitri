@@ -18,7 +18,7 @@
                     Halo, {{ $user->name }} 👋
                 </h1>
                 <p class="mt-1 text-sm text-blue-100/90">
-                    Lihat ujian yang dijadwalkan hari ini, lalu masukkan token dari pengawas untuk mulai mengerjakan.
+                    Pilih ujian yang tersedia di bawah atau masukkan token subtes untuk mulai mengerjakan.
                 </p>
                 <div class="mt-4 inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-white ring-1 ring-inset ring-white/20">
                     <svg class="h-4 w-4 text-blue-200" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -33,9 +33,9 @@
                     @csrf
                     <div class="mb-2 flex items-center justify-between">
                         <label for="input-token" class="text-xs font-bold uppercase tracking-wider text-slate-700">
-                            Token Ujian
+                            Token Ujian / Subtes
                         </label>
-                        <span class="text-[11px] font-medium text-slate-400">6 Karakter</span>
+                        <span class="text-[11px] font-medium text-slate-400">6–10 Karakter</span>
                     </div>
 
                     <div class="flex flex-col gap-2 sm:flex-row">
@@ -61,7 +61,7 @@
                     @enderror
 
                     <p class="mt-2.5 text-xs text-slate-500">
-                        Token diberikan oleh guru atau pengawas ruangan.
+                        Klik tombol <span class="font-semibold text-slate-700">Gunakan Token</span> pada kartu ujian di bawah atau masukkan kode secara manual.
                     </p>
                 </form>
             </div>
@@ -132,6 +132,23 @@
                         @endif
                     </div>
 
+                    {{-- Tampilan Token Subtes / Ujian --}}
+                    @if (!empty($u->token))
+                        <div class="mt-3 flex items-center justify-between rounded-lg border border-dashed border-blue-200 bg-blue-50/70 px-3 py-2">
+                            <div>
+                                <span class="block text-[10px] font-semibold uppercase tracking-wider text-blue-600">Token Subtes</span>
+                                <span class="font-mono text-sm font-bold tracking-[0.2em] text-slate-900 select-all">
+                                    {{ $u->token }}
+                                </span>
+                            </div>
+                            <button type="button"
+                                    onclick="navigator.clipboard?.writeText('{{ $u->token }}'); this.innerText='Tersalin!'; setTimeout(() => this.innerText='Salin', 1500)"
+                                    class="rounded-md border border-blue-200 bg-white px-2.5 py-1 text-xs font-semibold text-blue-700 shadow-2xs transition hover:bg-blue-600 hover:text-white">
+                                Salin
+                            </button>
+                        </div>
+                    @endif
+
                     {{-- Detail Jadwal & Durasi --}}
                     <dl class="mt-4 space-y-2 border-t border-slate-100 pt-3.5 text-xs text-slate-600">
                         <div class="flex items-center justify-between">
@@ -182,9 +199,15 @@
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
                             </svg>
                         </a>
+                    @elseif (!empty($u->token))
+                        <button type="button"
+                                onclick="const el = document.getElementById('input-token'); el.value = '{{ $u->token }}'; el.focus(); document.getElementById('panel-token').scrollIntoView({ behavior: 'smooth' });"
+                                class="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-2xs transition hover:bg-blue-700">
+                            Gunakan Token Ini
+                        </button>
                     @else
                         <div class="rounded-lg border border-slate-200 bg-white px-3 py-2 text-center text-xs font-medium text-slate-500">
-                            Masukkan token dari pengawas untuk memulai
+                            Masukkan token untuk memulai
                         </div>
                     @endif
                 </div>
