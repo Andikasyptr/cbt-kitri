@@ -7,10 +7,10 @@ use App\Models\{Kelas, User};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
+use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Fill;
-use PhpOffice\PhpSpreadsheet\Cell\DataValidation;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class UserController extends Controller
@@ -24,15 +24,18 @@ class UserController extends Controller
                 ->orWhere('username', 'like', "%$s%")
                 ->orWhere('nomor_induk', 'like', "%$s%")))
             ->when($role === 'siswa' && $request->kelas_id, fn ($q, $k) => $q->where('kelas_id', $k))
+            ->when($role === 'siswa' && $request->status === 'blokir', fn ($q) => $q->where('diblokir', true))
+            ->when($role === 'siswa' && $request->status === 'aktif', fn ($q) => $q->where(fn ($w) => $w->where('diblokir', false)->orWhereNull('diblokir')))
             ->orderBy('name')
             ->paginate(20)
             ->withQueryString();
 
         return view('admin.users.index', [
-            'role'      => $role,
-            'users'     => $users,
-            'total'     => User::where('role', $role)->count(),
-            'kelasList' => $role === 'siswa'
+            'role'          => $role,
+            'users'         => $users,
+            'total'         => User::where('role', $role)->count(),
+            'totalBlokir'   => $role === 'siswa' ? User::where('role', 'siswa')->where('diblokir', true)->count() : 0,
+            'kelasList'     => $role === 'siswa'
                 ? Kelas::with('jurusan')->orderBy('tingkat')->orderBy('jurusan_id')->orderBy('kode')->get()
                 : collect(),
         ]);
@@ -66,7 +69,111 @@ class UserController extends Controller
         return back()->with('success', 'Akun dihapus.');
     }
 
-    // ---------- Template Excel ----------
+    // ================= BLOKIR AKSES SISWA =================
+
+    // Blokir / buka satu siswa
+    public function toggleBlokir(Request $request, User $user)
+    {
+        abort_unless($user->role === 'siswa', 403);
+
+        if ($user->diblokir) {
+            $this->setBlokir(User::whereKey($user->id), false, null);
+
+            return back()->with('success', "Akses {$user->name} dibuka.");
+        }
+
+        $alasan = trim((string) $request->input('alasan')) ?: 'Belum membayar SPP';
+        $this->setBlokir(User::whereKey($user->id), true, $alasan);
+
+        return back()->with('success', "Akses {$user->name} diblokir.");
+    }
+
+    // Blokir / buka banyak siswa: dicentang atau satu kelas
+    public function blokirMassal(Request $request)
+    {
+        $data = $request->validate([
+            'mode'     => 'required|in:pilihan,kelas',
+            'aksi'     => 'required|in:blokir,buka',
+            'alasan'   => 'nullable|string|max:150',
+            'ids'      => 'nullable|array',
+            'ids.*'    => 'integer',
+            'kelas_id' => 'nullable|string',
+        ]);
+
+        $query = User::where('role', 'siswa');
+
+        if ($data['mode'] === 'pilihan') {
+            if (empty($data['ids'])) {
+                return back()->withErrors(['blokir' => 'Centang minimal satu siswa terlebih dahulu.']);
+            }
+            $query->whereIn('id', $data['ids']);
+        } else {
+            if (empty($data['kelas_id'])) {
+                return back()->withErrors(['blokir' => 'Pilih kelas terlebih dahulu.']);
+            }
+            // "semua" hanya diizinkan untuk membuka blokir
+            if ($data['kelas_id'] === 'semua') {
+                if ($data['aksi'] === 'blokir') {
+                    return back()->withErrors(['blokir' => 'Memblokir semua siswa sekaligus tidak diizinkan. Pilih kelas tertentu.']);
+                }
+            } else {
+                $query->where('kelas_id', (int) $data['kelas_id']);
+            }
+        }
+
+        $blokir = $data['aksi'] === 'blokir';
+        $alasan = $blokir ? (trim((string) ($data['alasan'] ?? '')) ?: 'Belum membayar SPP') : null;
+        $n = $this->setBlokir($query, $blokir, $alasan);
+
+        return back()->with('success', $n . ' siswa ' . ($blokir ? 'diblokir.' : 'dibuka aksesnya.'));
+    }
+
+    // Blokir / buka dari daftar NIS di Excel (kolom A = NIS, baris 1 = header)
+    public function blokirImport(Request $request)
+    {
+        $data = $request->validate([
+            'file'   => 'required|file|mimes:xlsx,xls|max:5120',
+            'aksi'   => 'required|in:blokir,buka',
+            'alasan' => 'nullable|string|max:150',
+        ]);
+
+        $rows = IOFactory::load($request->file('file')->getRealPath())
+            ->getSheet(0)->toArray(null, true, true, false);
+        array_shift($rows);
+
+        $nis = collect($rows)->map(fn ($r) => trim((string) ($r[0] ?? '')))->filter()->unique()->values();
+        if ($nis->isEmpty()) {
+            return back()->withErrors(['blokir' => 'Tidak ada NIS di kolom A file Excel.']);
+        }
+
+        $cocok = User::where('role', 'siswa')->whereIn('nomor_induk', $nis)->pluck('nomor_induk');
+        $tidakAda = $nis->diff($cocok)->values();
+
+        $blokir = $data['aksi'] === 'blokir';
+        $alasan = $blokir ? (trim((string) ($data['alasan'] ?? '')) ?: 'Belum membayar SPP') : null;
+        $n = $this->setBlokir(User::where('role', 'siswa')->whereIn('nomor_induk', $nis), $blokir, $alasan);
+
+        $pesan = $n . ' siswa ' . ($blokir ? 'diblokir.' : 'dibuka aksesnya.');
+        $res = back()->with('success', $pesan);
+
+        if ($tidakAda->isNotEmpty()) {
+            $res->withErrors(['blokir' => 'NIS tidak ditemukan (' . $tidakAda->count() . '): ' . $tidakAda->take(15)->implode(', ') . ($tidakAda->count() > 15 ? ', ...' : '')]);
+        }
+
+        return $res;
+    }
+
+    private function setBlokir($query, bool $blokir, ?string $alasan): int
+    {
+        return $query->update([
+            'diblokir'      => $blokir,
+            'alasan_blokir' => $blokir ? $alasan : null,
+            'diblokir_at'   => $blokir ? now() : null,
+        ]);
+    }
+
+    // ================= TEMPLATE & IMPORT AKUN =================
+
     public function template(string $role)
     {
         $spreadsheet = new Spreadsheet();
@@ -82,8 +189,6 @@ class UserController extends Controller
         $sheet->fromArray($header, null, 'A1');
         $sheet->getStyle("A1:{$lastCol}1")->getFont()->setBold(true)->getColor()->setRGB('FFFFFF');
         $sheet->getStyle("A1:{$lastCol}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB('2563EB');
-
-        // Kolom nomor induk berformat teks agar angka 0 di depan tidak hilang
         $sheet->getStyle('B2:B1000')->getNumberFormat()->setFormatCode('@');
 
         if ($siswa) {
@@ -101,7 +206,6 @@ class UserController extends Controller
                 }
             }
 
-            // Sheet 2: daftar kelas yang valid
             $ref = $spreadsheet->createSheet();
             $ref->setTitle('Daftar Kelas');
             $ref->setCellValue('A1', 'Nama kelas yang valid (salin persis ke kolom Kelas)');
@@ -111,7 +215,6 @@ class UserController extends Controller
             }
             $ref->getColumnDimension('A')->setWidth(55);
 
-            // Dropdown kelas pada kolom C
             if ($kelas->count() > 0) {
                 $v = $sheet->getCell('C2')->getDataValidation();
                 $v->setType(DataValidation::TYPE_LIST)
@@ -153,16 +256,15 @@ class UserController extends Controller
         ]);
     }
 
-    // ---------- Import Excel ----------
     public function import(Request $request, string $role)
     {
         $request->validate(['file' => 'required|file|mimes:xlsx,xls|max:5120']);
-        set_time_limit(300); // hashing password ratusan akun butuh waktu
+        set_time_limit(300);
 
         $siswa = $role === 'siswa';
         $rows = IOFactory::load($request->file('file')->getRealPath())
             ->getSheet(0)->toArray(null, true, true, false);
-        array_shift($rows); // buang header
+        array_shift($rows);
 
         $kelasMap = $siswa ? $this->petaKelas() : [];
         $dipakai = User::pluck('username')->map(fn ($u) => strtolower($u))->flip()->all();
@@ -175,7 +277,7 @@ class UserController extends Controller
             $r = array_map(fn ($v) => trim((string) $v), array_pad($r, $siswa ? 5 : 4, ''));
 
             if (implode('', $r) === '') {
-                continue; // baris kosong
+                continue;
             }
 
             if ($siswa) {
@@ -185,7 +287,6 @@ class UserController extends Controller
                 $kelasTxt = '';
             }
 
-            // Kosong -> pakai nomor induk
             $username = strtolower(preg_replace('/\s+/', '', $username !== '' ? $username : $induk));
             $password = $password !== '' ? $password : $induk;
 
@@ -215,7 +316,7 @@ class UserController extends Controller
                 }
             }
 
-            $dipakai[$username] = true; // cegah username ganda di dalam file
+            $dipakai[$username] = true;
             $siap[] = [
                 'name'        => $nama,
                 'username'    => $username,
@@ -232,7 +333,7 @@ class UserController extends Controller
 
         DB::transaction(function () use ($siap) {
             foreach ($siap as $data) {
-                User::create($data); // password di-hash otomatis oleh cast model
+                User::create($data);
             }
         });
 
@@ -244,7 +345,6 @@ class UserController extends Controller
         return back()->with('success', $pesan)->withErrors($this->detailGagal($gagal));
     }
 
-    // Normalisasi nama kelas: "XII TKJ A" == "xii-tkj-a" == "12 TKJ A"
     private function norm(string $s): string
     {
         return strtoupper(preg_replace('/[\s\-_.]+/', '', $s));
@@ -261,7 +361,6 @@ class UserController extends Controller
         return $peta;
     }
 
-    // Tampilkan maksimal 15 alasan agar pesan tidak terlalu panjang
     private function detailGagal(array $gagal): array
     {
         $out = [];

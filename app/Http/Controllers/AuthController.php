@@ -25,9 +25,24 @@ class AuthController extends Controller
                 ->onlyInput('username');
         }
 
+        $user = Auth::user();
+
+        // Siswa yang diblokir (misalnya belum membayar SPP) tidak boleh masuk
+        if ($user->role === 'siswa' && $user->diblokir) {
+            $pesan = 'Akun Anda diblokir sementara.'
+                . ($user->alasan_blokir ? ' Alasan: ' . $user->alasan_blokir . '.' : '')
+                . ' Silakan hubungi bagian administrasi sekolah.';
+
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()->withErrors(['username' => $pesan])->onlyInput('username');
+        }
+
         $request->session()->regenerate();
 
-        return redirect()->route($this->homeRoute(Auth::user()->role));
+        return redirect()->route($this->homeRoute($user->role));
     }
 
     public function logout(Request $request)

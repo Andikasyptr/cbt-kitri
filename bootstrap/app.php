@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\CekAkses;
 use App\Http\Middleware\RoleMiddleware;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -13,13 +14,13 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
-    $middleware->trustProxies(at: '*');
+        $middleware->trustProxies(at: '*');
 
-    $middleware->alias([
-        'role' => RoleMiddleware::class,
-    ]);
+        $middleware->alias([
+            'role'  => RoleMiddleware::class,
+            'akses' => CekAkses::class,
+        ]);
 
-        // Jika user sudah login lalu membuka /login, arahkan ke dashboard sesuai role
         $middleware->redirectUsersTo(function () {
             return match (auth()->user()->role) {
                 'admin' => route('admin.dashboard'),

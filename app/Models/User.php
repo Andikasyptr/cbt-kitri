@@ -18,7 +18,9 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'password' => 'hashed', // otomatis di-hash saat disimpan
+            'password'    => 'hashed', // otomatis di-hash saat disimpan
+            'diblokir'    => 'boolean',
+            'diblokir_at' => 'datetime',
         ];
     }
 

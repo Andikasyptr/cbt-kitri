@@ -22,9 +22,8 @@ Route::middleware('guest')->group(function () {
 
 Route::post('/logout', [AuthController::class, 'logout'])->middleware('auth')->name('logout');
 
-// Gambar soal (hak akses diperiksa di dalam controller)
 Route::get('/gambar/soal/{soal}', [GambarSoalController::class, 'show'])
-    ->middleware('auth')->name('soal.gambar');
+    ->middleware(['auth', 'akses'])->name('soal.gambar');
 
 // ===================== ADMIN =====================
 Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->group(function () {
@@ -44,6 +43,11 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('siswa', [UserController::class, 'store'])->defaults('role', 'siswa')->name('siswa.store');
     Route::get('siswa/template', [UserController::class, 'template'])->defaults('role', 'siswa')->name('siswa.template');
     Route::post('siswa/import', [UserController::class, 'import'])->defaults('role', 'siswa')->name('siswa.import');
+
+    // Blokir akses siswa (SPP)
+    Route::post('siswa/blokir-massal', [UserController::class, 'blokirMassal'])->name('siswa.blokir.massal');
+    Route::post('siswa/blokir-import', [UserController::class, 'blokirImport'])->name('siswa.blokir.import');
+    Route::post('siswa/{user}/blokir', [UserController::class, 'toggleBlokir'])->name('siswa.blokir');
 
     Route::delete('akun/{user}', [UserController::class, 'destroy'])->name('akun.destroy');
 
@@ -72,7 +76,7 @@ Route::middleware(['auth', 'role:guru'])->prefix('guru')->name('guru.')->group(f
 });
 
 // ===================== SISWA =====================
-Route::middleware(['auth', 'role:siswa'])->prefix('siswa')->name('siswa.')->group(function () {
+Route::middleware(['auth', 'role:siswa', 'akses'])->prefix('siswa')->name('siswa.')->group(function () {
     Route::get('/', [Siswa\DashboardController::class, 'index'])->name('dashboard');
 
     Route::post('token', [Siswa\UjianController::class, 'cekToken'])->name('token');
