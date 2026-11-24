@@ -11,6 +11,7 @@ use App\Http\Controllers\GambarSoalController;
 use App\Http\Controllers\Guru;
 use App\Http\Controllers\Siswa;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Guru\BankSoalController;
 
 // ===================== UMUM =====================
 Route::get('/', fn () => redirect()->route('login'));
