@@ -3,12 +3,12 @@
 namespace App\Http\Controllers\Siswa;
 
 use App\Http\Controllers\Controller;
-use App\Models\{HasilUjian, Ujian, User};
+use App\Models\{BankSoal, HasilUjian, Ujian, User};
 use Illuminate\Http\Request;
 
 class UjianController extends Controller
 {
-    private const BATAS_PELANGGARAN = 3;
+    private const BATAS_PELANGGARAN = 2;
 
     private function milikSiswa(HasilUjian $hasil): void
     {
@@ -104,11 +104,27 @@ class UjianController extends Controller
                 'benar'       => 0,
                 'pelanggaran' => 0,
             ]);
+
+            // Salin soal ujian ini ke bank soal guru (hanya sekali)
+            $this->arsipkan($ujian);
         }
 
         session()->forget("token_ok.{$ujian->id}");
 
         return redirect()->route('siswa.ujian.kerjakan', $hasil);
+    }
+
+    // Hanya siswa PERTAMA yang memicu penyalinan ke bank (update atomik), sisanya dilewati
+    private function arsipkan(Ujian $ujian): void
+    {
+        try {
+            $pertama = Ujian::whereKey($ujian->id)->whereNull('diarsipkan_at')->update(['diarsipkan_at' => now()]);
+            if ($pertama === 1) {
+                BankSoal::arsipkanUjian($ujian);
+            }
+        } catch (\Throwable $e) {
+            report($e); // kegagalan arsip tidak boleh mengganggu ujian siswa
+        }
     }
 
     // ---------- Halaman ujian ----------

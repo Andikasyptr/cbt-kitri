@@ -60,6 +60,7 @@
         <h2 class="font-semibold text-slate-900">Import Soal dari Excel</h2>
         <p class="text-sm text-slate-500">Kolom: Pertanyaan, Opsi A–E, Kunci (A–E). Baris pertama adalah header. Gambar ditambahkan lewat tombol Edit setelah import.</p>
         <a href="{{ route('guru.soal.template', $ujian) }}" class="inline-block text-sm text-blue-600 hover:underline">⬇ Download template Excel</a>
+        <a href="{{ route('guru.bank.index', ['ujian' => $ujian->id]) }}" class="ml-4 inline-block text-sm text-blue-600 hover:underline">📚 Ambil dari Bank Soal</a>
         <form action="{{ route('guru.soal.import', $ujian) }}" method="POST" enctype="multipart/form-data" class="space-y-3">
             @csrf
             <input type="file" name="file" accept=".xlsx,.xls" required

@@ -66,6 +66,7 @@
         'guru' => [
             ['guru.dashboard', 'Dashboard', 'guru.dashboard', 'home'],
             ['guru.ujian.index', 'Daftar Ujian', ['guru.ujian.*', 'guru.soal.*', 'guru.nilai.*'], 'exam'],
+            ['guru.bank.index', 'Bank Soal', 'guru.bank.*', 'book'],
         ],
         default => [
             ['siswa.dashboard', 'Ujian Saya', 'siswa.*', 'exam'],

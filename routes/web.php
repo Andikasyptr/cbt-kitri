@@ -73,6 +73,13 @@ Route::middleware(['auth', 'role:guru'])->prefix('guru')->name('guru.')->group(f
     Route::get('ujian/{ujian}/nilai', [Guru\NilaiController::class, 'index'])->name('nilai.index');
     Route::get('ujian/{ujian}/nilai/export', [Guru\NilaiController::class, 'export'])->name('nilai.export');
     Route::delete('hasil/{hasil}', [Guru\NilaiController::class, 'reset'])->name('nilai.reset');
+
+        // Bank soal
+    Route::get('bank', [BankSoalController::class, 'index'])->name('bank.index');
+    Route::post('bank/tambah', [BankSoalController::class, 'tambah'])->name('bank.tambah');
+    Route::post('bank/sinkron', [BankSoalController::class, 'sinkron'])->name('bank.sinkron');
+    Route::get('bank/{bank}/gambar', [BankSoalController::class, 'gambar'])->name('bank.gambar');
+    Route::delete('bank/{bank}', [BankSoalController::class, 'destroy'])->name('bank.destroy');
 });
 
 // ===================== SISWA =====================

@@ -7,6 +7,7 @@ use App\Models\{Kelas, Mapel, Ujian};
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
+
 class UjianController extends Controller
 {
     private function rules(): array
