@@ -15,13 +15,11 @@ use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
 class UserController extends Controller
 {
-    // Pilihan jumlah data per halaman (whitelist)
-    private const PER_PAGE = [10, 25, 50, 100, 250, 500];
-
     public function index(Request $request, string $role)
     {
-        $perPage = (int) $request->input('per_page', 10);
-        $perPage = in_array($perPage, self::PER_PAGE, true) ? $perPage : 10;
+        $perHalaman = in_array((int) $request->per_page, [10, 25, 50, 100, 250, 500])
+            ? (int) $request->per_page
+            : 10;
 
         $users = User::with('kelas.jurusan')
             ->where('role', $role)
@@ -33,15 +31,15 @@ class UserController extends Controller
             ->when($role === 'siswa' && $request->status === 'blokir', fn ($q) => $q->where('diblokir', true))
             ->when($role === 'siswa' && $request->status === 'aktif', fn ($q) => $q->where(fn ($w) => $w->where('diblokir', false)->orWhereNull('diblokir')))
             ->orderBy('name')
-            ->paginate($perPage)
+            ->paginate($perHalaman)
             ->withQueryString();
 
         return view('admin.users.index', [
-            'role'          => $role,
-            'users'         => $users,
-            'total'         => User::where('role', $role)->count(),
-            'totalBlokir'   => $role === 'siswa' ? User::where('role', 'siswa')->where('diblokir', true)->count() : 0,
-            'kelasList'     => $role === 'siswa'
+            'role'        => $role,
+            'users'       => $users,
+            'total'       => User::where('role', $role)->count(),
+            'totalBlokir' => $role === 'siswa' ? User::where('role', 'siswa')->where('diblokir', true)->count() : 0,
+            'kelasList'   => $role === 'siswa'
                 ? Kelas::with('jurusan')->orderBy('tingkat')->orderBy('jurusan_id')->orderBy('kode')->get()
                 : collect(),
         ]);
@@ -67,6 +65,35 @@ class UserController extends Controller
         return back()->with('success', ucfirst($role) . ' berhasil didaftarkan.');
     }
 
+    // Edit data akun guru/siswa. Password hanya diganti jika diisi.
+    public function update(Request $request, User $user)
+    {
+        abort_unless(in_array($user->role, ['guru', 'siswa']), 403, 'Akun admin tidak diedit di sini.');
+
+        $siswa = $user->role === 'siswa';
+
+        $data = $request->validate([
+            'name'        => 'required|string|max:100',
+            'username'    => 'required|string|max:50|unique:users,username,' . $user->id,
+            'nomor_induk' => 'nullable|string|max:30',
+            'password'    => 'nullable|string|min:6',
+            'kelas_id'    => $siswa ? 'required|exists:kelas,id' : 'nullable',
+        ]);
+
+        $data['username'] = strtolower(preg_replace('/\s+/', '', $data['username']));
+
+        if (empty($data['password'])) {
+            unset($data['password']); // password lama dipertahankan
+        }
+        if (! $siswa) {
+            $data['kelas_id'] = null;
+        }
+
+        $user->update($data);
+
+        return back()->with('success', 'Data ' . $user->role . ' diperbarui.');
+    }
+
     public function destroy(User $user)
     {
         abort_if($user->role === 'admin', 403, 'Akun admin tidak boleh dihapus.');
@@ -77,7 +104,6 @@ class UserController extends Controller
 
     // ================= BLOKIR AKSES SISWA =================
 
-    // Blokir / buka satu siswa
     public function toggleBlokir(Request $request, User $user)
     {
         abort_unless($user->role === 'siswa', 403);
@@ -94,14 +120,13 @@ class UserController extends Controller
         return back()->with('success', "Akses {$user->name} diblokir.");
     }
 
-    // Blokir / buka banyak siswa: dicentang atau satu kelas
     public function blokirMassal(Request $request)
     {
         $data = $request->validate([
             'mode'     => 'required|in:pilihan,kelas',
             'aksi'     => 'required|in:blokir,buka',
             'alasan'   => 'nullable|string|max:150',
-            'ids'      => 'nullable|array|max:1000',
+            'ids'      => 'nullable|array',
             'ids.*'    => 'integer',
             'kelas_id' => 'nullable|string',
         ]);
@@ -117,7 +142,6 @@ class UserController extends Controller
             if (empty($data['kelas_id'])) {
                 return back()->withErrors(['blokir' => 'Pilih kelas terlebih dahulu.']);
             }
-            // "semua" hanya diizinkan untuk membuka blokir
             if ($data['kelas_id'] === 'semua') {
                 if ($data['aksi'] === 'blokir') {
                     return back()->withErrors(['blokir' => 'Memblokir semua siswa sekaligus tidak diizinkan. Pilih kelas tertentu.']);
@@ -134,7 +158,6 @@ class UserController extends Controller
         return back()->with('success', $n . ' siswa ' . ($blokir ? 'diblokir.' : 'dibuka aksesnya.'));
     }
 
-    // Blokir / buka dari daftar NIS di Excel (kolom A = NIS, baris 1 = header)
     public function blokirImport(Request $request)
     {
         $data = $request->validate([
@@ -159,8 +182,7 @@ class UserController extends Controller
         $alasan = $blokir ? (trim((string) ($data['alasan'] ?? '')) ?: 'Belum membayar SPP') : null;
         $n = $this->setBlokir(User::where('role', 'siswa')->whereIn('nomor_induk', $nis), $blokir, $alasan);
 
-        $pesan = $n . ' siswa ' . ($blokir ? 'diblokir.' : 'dibuka aksesnya.');
-        $res = back()->with('success', $pesan);
+        $res = back()->with('success', $n . ' siswa ' . ($blokir ? 'diblokir.' : 'dibuka aksesnya.'));
 
         if ($tidakAda->isNotEmpty()) {
             $res->withErrors(['blokir' => 'NIS tidak ditemukan (' . $tidakAda->count() . '): ' . $tidakAda->take(15)->implode(', ') . ($tidakAda->count() > 15 ? ', ...' : '')]);

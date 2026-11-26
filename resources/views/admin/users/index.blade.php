@@ -13,7 +13,7 @@
     $filterAktif = request('q') || request('kelas_id') || request('status');
     $pilihanPerHalaman = [10, 25, 50, 100, 250, 500];
 @endphp
- 
+
 {{-- Header halaman --}}
 <div class="mb-5 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
@@ -36,7 +36,7 @@
         <button type="button" onclick="document.getElementById('dlg-tambah').showModal()" class="btn-primary">Tambah {{ $label }}</button>
     </div>
 </div>
- 
+
 {{-- Pencarian & filter --}}
 <form method="GET" class="card mb-4 flex flex-col gap-2 p-3 sm:flex-row sm:p-4">
     <input name="q" value="{{ request('q') }}" placeholder="Cari nama, username, atau {{ $induk }}" class="flex-1 px-3 py-2">
@@ -63,7 +63,7 @@
         <a href="{{ url()->current() }}?per_page={{ request('per_page', 10) }}" class="btn-ghost">Reset</a>
     @endif
 </form>
- 
+
 {{-- Aksi massal untuk siswa yang dicentang --}}
 @unless ($guru)
     <form id="form-massal" action="{{ route('admin.siswa.blokir.massal') }}" method="POST"
@@ -81,7 +81,7 @@
         <button class="btn bg-slate-800 text-white hover:bg-slate-900">Terapkan</button>
     </form>
 @endunless
- 
+
 {{-- Tabel (desktop) --}}
 <div class="card hidden overflow-hidden md:block">
     <table class="w-full text-sm">
@@ -130,6 +130,9 @@
                     </td>
                 @endunless
                 <td class="whitespace-nowrap px-4 py-3 text-right">
+                    <button type="button"
+                            onclick='bukaEdit(@json(["id" => $u->id, "name" => $u->name, "username" => $u->username, "nomor_induk" => $u->nomor_induk, "kelas_id" => $u->kelas_id]))'
+                            class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
                     @unless ($guru)
                         <form action="{{ route('admin.siswa.blokir', $u) }}" method="POST" class="inline"
                               onsubmit="return setAlasan(this, {{ $u->diblokir ? 'true' : 'false' }})">
@@ -152,7 +155,7 @@
         </tbody>
     </table>
 </div>
- 
+
 {{-- Kartu (HP) --}}
 <div class="space-y-3 md:hidden">
     @forelse ($users as $u)
@@ -184,6 +187,9 @@
                 </div>
             </div>
             <div class="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
+                <button type="button"
+                        onclick='bukaEdit(@json(["id" => $u->id, "name" => $u->name, "username" => $u->username, "nomor_induk" => $u->nomor_induk, "kelas_id" => $u->kelas_id]))'
+                        class="rounded-lg px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
                 @unless ($guru)
                     <form action="{{ route('admin.siswa.blokir', $u) }}" method="POST" onsubmit="return setAlasan(this, {{ $u->diblokir ? 'true' : 'false' }})">
                         @csrf
@@ -203,7 +209,7 @@
         <div class="card p-10 text-center text-sm text-slate-400">Belum ada data {{ strtolower($label) }}.</div>
     @endforelse
 </div>
- 
+
 <div class="mt-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
     <p class="text-xs text-slate-500">
         Menampilkan {{ number_format($users->firstItem() ?? 0) }}&ndash;{{ number_format($users->lastItem() ?? 0) }}
@@ -211,7 +217,7 @@
     </p>
     <div>{{ $users->links() }}</div>
 </div>
- 
+
 {{-- ============ Dialog: Tambah ============ --}}
 <dialog id="dlg-tambah" class="w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
     <form action="{{ route($routeStore) }}" method="POST" class="space-y-4 p-6">
@@ -255,7 +261,51 @@
         </div>
     </form>
 </dialog>
- 
+
+{{-- ============ Dialog: Edit ============ --}}
+<dialog id="dlg-edit" class="w-[calc(100%-2rem)] max-w-md rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
+    <form id="form-edit" method="POST" class="space-y-4 p-6">
+        @csrf @method('PUT')
+        <div class="flex items-center justify-between">
+            <h3 class="text-lg font-bold text-slate-900">Edit {{ $label }}</h3>
+            <button type="button" onclick="this.closest('dialog').close()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Tutup">&#10005;</button>
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">Nama Lengkap</label>
+            <input id="e-name" name="name" required class="w-full px-3 py-2">
+        </div>
+        <div>
+            <label class="mb-1 block text-sm font-medium text-slate-700">{{ $induk }}</label>
+            <input id="e-induk" name="nomor_induk" class="w-full px-3 py-2">
+        </div>
+        @unless ($guru)
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Kelas</label>
+                <select id="e-kelas" name="kelas_id" required class="w-full px-3 py-2">
+                    <option value="">-- pilih kelas --</option>
+                    @foreach ($kelasList as $k)
+                        <option value="{{ $k->id }}">{{ $k->nama_lengkap }}</option>
+                    @endforeach
+                </select>
+            </div>
+        @endunless
+        <div class="grid gap-4 sm:grid-cols-2">
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Username</label>
+                <input id="e-username" name="username" autocapitalize="none" required class="w-full px-3 py-2">
+            </div>
+            <div>
+                <label class="mb-1 block text-sm font-medium text-slate-700">Password baru</label>
+                <input type="text" name="password" minlength="6" placeholder="Kosongkan jika tidak diganti" class="w-full px-3 py-2">
+            </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+            <button type="button" onclick="this.closest('dialog').close()" class="btn-ghost">Batal</button>
+            <button class="btn-primary">Simpan Perubahan</button>
+        </div>
+    </form>
+</dialog>
+
 {{-- ============ Dialog: Import akun ============ --}}
 <dialog id="dlg-import" class="w-[calc(100%-2rem)] max-w-lg rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
     <form action="{{ route($routeImport) }}" method="POST" enctype="multipart/form-data" class="space-y-4 p-6">
@@ -280,7 +330,7 @@
         </div>
     </form>
 </dialog>
- 
+
 @unless ($guru)
 {{-- ============ Dialog: Blokir akses (SPP) ============ --}}
 <dialog id="dlg-blokir" class="w-[calc(100%-2rem)] max-w-lg rounded-2xl p-0 shadow-2xl backdrop:bg-slate-900/50 backdrop:backdrop-blur-sm">
@@ -289,12 +339,12 @@
             <h3 class="text-lg font-bold text-slate-900">Blokir / Buka Akses Siswa</h3>
             <button type="button" onclick="this.closest('dialog').close()" class="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100" aria-label="Tutup">&#10005;</button>
         </div>
- 
+
         <p class="rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
             Siswa yang diblokir tidak bisa login dan langsung dikeluarkan jika sedang online. Akun, nilai, dan data lain tetap aman.
             Untuk memblokir satu per satu, atau memilih beberapa siswa, gunakan tombol di tabel.
         </p>
- 
+
         {{-- Per kelas --}}
         <form action="{{ route('admin.siswa.blokir.massal') }}" method="POST" class="space-y-3 rounded-xl border border-slate-200 p-4">
             @csrf
@@ -316,7 +366,7 @@
             </div>
             <button class="btn bg-slate-800 text-white hover:bg-slate-900" onclick="return confirm('Terapkan ke seluruh siswa di kelas yang dipilih?')">Terapkan ke kelas</button>
         </form>
- 
+
         {{-- Dari Excel --}}
         <form action="{{ route('admin.siswa.blokir.import') }}" method="POST" enctype="multipart/form-data" class="space-y-3 rounded-xl border border-slate-200 p-4">
             @csrf
@@ -336,20 +386,33 @@
     </div>
 </dialog>
 @endunless
- 
+
 @push('scripts')
 <script>
     // Buka kembali dialog tambah jika validasi gagal
     @if ($errors->any() && old('username') && ! $errors->has('import') && ! $errors->has('file') && ! $errors->has('blokir'))
         document.getElementById('dlg-tambah').showModal();
     @endif
- 
+
     // Cegah klik ganda saat import
     document.querySelector('#dlg-import form').addEventListener('submit', function () {
         const b = document.getElementById('btn-do-import');
         b.disabled = true; b.textContent = 'Memproses...';
     });
- 
+
+    // Dialog edit akun
+    function bukaEdit(u) {
+        const f = document.getElementById('form-edit');
+        f.action = "{{ url('admin/akun') }}/" + u.id;
+        f.reset();
+        document.getElementById('e-name').value = u.name ?? '';
+        document.getElementById('e-induk').value = u.nomor_induk ?? '';
+        document.getElementById('e-username').value = u.username ?? '';
+        const kelas = document.getElementById('e-kelas');
+        if (kelas) kelas.value = u.kelas_id ?? '';
+        document.getElementById('dlg-edit').showModal();
+    }
+
     // Tanya alasan saat memblokir satu siswa; konfirmasi saat membuka akses
     function setAlasan(form, sudahDiblokir) {
         if (sudahDiblokir) return confirm('Buka akses siswa ini?');
@@ -358,15 +421,15 @@
         form.querySelector('input[name=alasan]').value = alasan;
         return true;
     }
- 
+
     // ===== Pilih siswa (centang) =====
     // Hanya checkbox yang terlihat (desktop ATAU HP) yang dihitung
     const barisTerlihat = () =>
         [...document.querySelectorAll('.cek-baris')].filter((c) => c.offsetParent !== null);
- 
+
     const cekSemua = document.getElementById('cek-semua');
     const jml = document.getElementById('jml-dipilih');
- 
+
     const hitung = () => {
         if (!jml) return;
         const semua = barisTerlihat();
@@ -377,7 +440,7 @@
             cekSemua.indeterminate = n > 0 && n < semua.length;
         }
     };
- 
+
     if (cekSemua) {
         cekSemua.addEventListener('change', () => {
             barisTerlihat().forEach((c) => (c.checked = cekSemua.checked));
@@ -385,7 +448,7 @@
         });
     }
     document.querySelectorAll('.cek-baris').forEach((c) => c.addEventListener('change', hitung));
- 
+
     // Kumpulkan ID yang dicentang saat form massal dikirim
     const formMassal = document.getElementById('form-massal');
     if (formMassal) {
@@ -414,4 +477,3 @@
 </script>
 @endpush
 @endsection
- 

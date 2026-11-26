@@ -9,9 +9,9 @@ use App\Http\Controllers\Admin\UserController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\GambarSoalController;
 use App\Http\Controllers\Guru;
+use App\Http\Controllers\Guru\BankSoalController;
 use App\Http\Controllers\Siswa;
 use Illuminate\Support\Facades\Route;
-use App\Http\Controllers\Guru\BankSoalController;
 
 // ===================== UMUM =====================
 Route::get('/', fn () => redirect()->route('login'));
@@ -50,6 +50,8 @@ Route::middleware(['auth', 'role:admin'])->prefix('admin')->name('admin.')->grou
     Route::post('siswa/blokir-import', [UserController::class, 'blokirImport'])->name('siswa.blokir.import');
     Route::post('siswa/{user}/blokir', [UserController::class, 'toggleBlokir'])->name('siswa.blokir');
 
+    // Edit & hapus akun
+    Route::put('akun/{user}', [UserController::class, 'update'])->name('akun.update');
     Route::delete('akun/{user}', [UserController::class, 'destroy'])->name('akun.destroy');
 
     Route::get('soal', [AdminSoalController::class, 'index'])->name('soal.index');
@@ -75,7 +77,7 @@ Route::middleware(['auth', 'role:guru'])->prefix('guru')->name('guru.')->group(f
     Route::get('ujian/{ujian}/nilai/export', [Guru\NilaiController::class, 'export'])->name('nilai.export');
     Route::delete('hasil/{hasil}', [Guru\NilaiController::class, 'reset'])->name('nilai.reset');
 
-        // Bank soal
+    // Bank soal
     Route::get('bank', [BankSoalController::class, 'index'])->name('bank.index');
     Route::post('bank/tambah', [BankSoalController::class, 'tambah'])->name('bank.tambah');
     Route::post('bank/sinkron', [BankSoalController::class, 'sinkron'])->name('bank.sinkron');
