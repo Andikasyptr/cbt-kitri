@@ -131,7 +131,12 @@
                 @endunless
                 <td class="whitespace-nowrap px-4 py-3 text-right">
                     <button type="button"
-                            onclick='bukaEdit(@json(["id" => $u->id, "name" => $u->name, "username" => $u->username, "nomor_induk" => $u->nomor_induk, "kelas_id" => $u->kelas_id]))'
+                            data-id="{{ $u->id }}"
+                            data-name="{{ $u->name }}"
+                            data-username="{{ $u->username }}"
+                            data-induk="{{ $u->nomor_induk }}"
+                            data-kelas="{{ $u->kelas_id }}"
+                            onclick="bukaEdit(this)"
                             class="rounded-lg px-2.5 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
                     @unless ($guru)
                         <form action="{{ route('admin.siswa.blokir', $u) }}" method="POST" class="inline"
@@ -188,7 +193,12 @@
             </div>
             <div class="mt-3 flex justify-end gap-2 border-t border-slate-100 pt-3">
                 <button type="button"
-                        onclick='bukaEdit(@json(["id" => $u->id, "name" => $u->name, "username" => $u->username, "nomor_induk" => $u->nomor_induk, "kelas_id" => $u->kelas_id]))'
+                        data-id="{{ $u->id }}"
+                        data-name="{{ $u->name }}"
+                        data-username="{{ $u->username }}"
+                        data-induk="{{ $u->nomor_induk }}"
+                        data-kelas="{{ $u->kelas_id }}"
+                        onclick="bukaEdit(this)"
                         class="rounded-lg px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-50">Edit</button>
                 @unless ($guru)
                     <form action="{{ route('admin.siswa.blokir', $u) }}" method="POST" onsubmit="return setAlasan(this, {{ $u->diblokir ? 'true' : 'false' }})">
@@ -400,16 +410,17 @@
         b.disabled = true; b.textContent = 'Memproses...';
     });
 
-    // Dialog edit akun
-    function bukaEdit(u) {
+    // Dialog edit akun: data dibaca dari atribut data-* tombol
+    function bukaEdit(btn) {
+        const d = btn.dataset;
         const f = document.getElementById('form-edit');
-        f.action = "{{ url('admin/akun') }}/" + u.id;
+        f.action = "{{ url('admin/akun') }}/" + d.id;
         f.reset();
-        document.getElementById('e-name').value = u.name ?? '';
-        document.getElementById('e-induk').value = u.nomor_induk ?? '';
-        document.getElementById('e-username').value = u.username ?? '';
+        document.getElementById('e-name').value = d.name || '';
+        document.getElementById('e-induk').value = d.induk || '';
+        document.getElementById('e-username').value = d.username || '';
         const kelas = document.getElementById('e-kelas');
-        if (kelas) kelas.value = u.kelas_id ?? '';
+        if (kelas) kelas.value = d.kelas || '';
         document.getElementById('dlg-edit').showModal();
     }
 
